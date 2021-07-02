@@ -1,0 +1,58 @@
+{
+  "date.schema.json": {
+    "valid": [
+      {"instance": {"type": "date"}, "note": "empty date spec is valid"},
+      {"instance": {"type": "date", "config": {"offset": 1}}},
+      {"instance": {"type": "date", "config": {"duration_days": 1}}},
+      {"instance": {"type": "date", "config": {"duration_days": "22"}}},
+      {"instance": {"type": "date", "config": {"duration_days": 1, "offset": 1}}},
+      {"instance": {"type": "date", "config": {"duration_days": 1, "offset": -1}}},
+      {"instance": {"type": "date", "config": {"duration_days": 1, "offset": 1, "start": "15-12-2050"}}},
+      {"instance": {"type": "date", "config": {"duration_days": 1, "start": "15-Dec-2050", "format": "%d-%b-%Y"}}},
+      {"instance": {"type": "date", "config": {"duration_days": 1, "end": "15-Dec-2050"}}},
+      {"instance": {"type": "date", "config": {"duration_days": 1, "offset": 1, "start": "15-12-2050", "end": "15-12-2051" }}},
+      {"instance": {"type": "date", "config": {"duration_days": 1, "start": "15-Dec-2050", "end": "15-Dec-2051", "format": "%d-%b-%Y"}}},
+      {"instance": {"type": "date", "config": {"center_date": "15-Dec-2050"}}},
+      {"instance": {"type": "date", "config": {"center_date": "15-Dec-2050", "stddev_days": 30}}},
+      {"instance": {"type": "date", "config": {"stddev_days": 30}}}
+    ],
+    "invalid": [
+      {"instance": {}, "note": "empty"},
+      {"instance": {"type": "dates"}, "note": "misspelled"},
+      {"instance": {"type": "date,iso"}, "note": "misspelled"},
+      {"instance": {"type": "date", "config": {"offset": 1.5}}, "note": "only integer offsets supported"},
+      {
+        "note": "only string formatted start dates supported",
+        "instance": {"type": "date", "config": {"start": 1615477175}}
+      },
+      {
+        "note": "only string formatted end dates supported",
+        "instance": {"type": "date", "config": {"end": 1615477175}}
+      },
+      {
+        "note": "cannot supply start and center_date",
+        "instance": {"type": "date", "config": {"start": "15-12-2050", "center_date": "25-12-2050"}}
+      },
+      {
+        "note": "cannot supply end and center_date",
+        "instance": {"type": "date", "config": {"center_date": "25-12-2050", "end": "31-12-2050"}}
+      },
+      {
+        "note": "cannot supply duration_days and center_date",
+        "instance": {"type": "date", "config": {"center_date": "25-12-2050", "duration_days": 22}}
+      },
+      {
+        "note": "cannot supply start and stddev_days",
+        "instance": {"type": "date", "config": {"start": "15-12-2050", "stddev_days": 30}}
+      },
+      {
+        "note": "cannot supply end and stddev_days",
+        "instance": {"type": "date", "config": {"stddev_days": 30, "end": "31-12-2050"}}
+      },
+      {
+        "note": "cannot supply duration_days and stddev_days",
+        "instance": {"type": "date", "config": {"stddev_days": 30, "duration_days": 22}}
+      }
+    ]
+  }
+}

@@ -1,8 +1,8 @@
 import pytest
 from dataspec.loader import Loader
-from dataspec import SpecException, suppliers
+from dataspec import builder, suppliers, SpecException
 # to engage registration
-from dataspec.type_handlers import select_list_subset
+from dataspec.supplier.core import select_list_subset
 
 
 def test_invalid_when_no_config():
@@ -14,21 +14,13 @@ def test_invalid_when_no_mean_specified():
 
 
 def test_invalid_when_ref_not_defined():
-    spec = {
-        "field:select_list_subset?mean=2": {
-            "ref": "REF"
-        }
-    }
+    spec = builder.single_field("field:select_list_subset?mean=2", {"ref": "REF"}).build()
     _test_invalid_select_list_spec(spec)
 
 
 def test_invalid_when_ref_and_data_specified():
-    spec = {
-        "field:select_list_subset?mean=2": {
-            "ref": "REF",
-            "data": ["one", "two", "three", "four"]
-        }
-    }
+    spec = builder.single_field("field?mean=2",
+                                builder.select_list_subset(data=["one", "two", "three", "four"], ref="REF")).build()
     _test_invalid_select_list_spec(spec)
 
 
@@ -76,3 +68,14 @@ def test_select_list_using_loader():
     supplier = loader.get('pets')
     value = supplier.next(0)
     assert len(value) == 7
+
+
+def test_select_list_ref_contains_data():
+    spec_builder = builder.spec_builder()
+    spec_builder.select_list_subset('pets', data=None, ref='pets_list', count=2)
+    spec_builder.refs().values(key='pets_list', data=['goat', 'sheep', 'bear', 'cow', 'dragon'])
+    loader = Loader(spec_builder.build())
+    supplier = loader.get('pets')
+    value = supplier.next(0)
+    assert isinstance(value, list)
+    assert len(value) == 2

@@ -24,25 +24,23 @@ The select_list_subset Field Spec structure is:
 """
 import json
 
-from dataspec import registry, SpecException
-from dataspec.suppliers import list_stat_sampler
-from dataspec.utils import load_config
+import dataspec
 
 
-@registry.types('select_list_subset')
+@dataspec.registry.types('select_list_subset')
 def configure_supplier(field_spec, loader):
     """ configures supplier for select_list_subset type """
-    config = load_config(field_spec, loader)
-    if config is None or 'mean' not in config:
-        raise SpecException('Config with mean defined must be provided: %s' % json.dumps(field_spec))
+    config = dataspec.utils.load_config(field_spec, loader)
+    if config is None or ('mean' not in config and 'count' not in config):
+        raise dataspec.SpecException('Config with mean or count defined must be provided: %s' % json.dumps(field_spec))
     if 'ref' in field_spec and 'data' in field_spec:
-        raise SpecException('Only one of "data" or "ref" can be provided for: %s' % json.dumps(field_spec))
+        raise dataspec.SpecException('Only one of "data" or "ref" can be provided for: %s' % json.dumps(field_spec))
 
     if 'ref' in field_spec:
         ref_name = field_spec.get('ref')
         field_spec = loader.get_ref_spec(ref_name)
         if field_spec is None:
-            raise SpecException('No ref with name %s found: %s' % (ref_name, json.dumps(field_spec)))
+            raise dataspec.SpecException('No ref with name %s found: %s' % (ref_name, json.dumps(field_spec)))
 
         if 'data' in field_spec:
             data = field_spec.get('data')
@@ -51,5 +49,6 @@ def configure_supplier(field_spec, loader):
 
     if 'data' in field_spec:
         data = field_spec.get('data')
-
-    return list_stat_sampler(data, config)
+    if dataspec.utils.any_key_exists(config, ['mean', 'stddev']):
+        return dataspec.suppliers.list_stat_sampler(data, config)
+    return dataspec.suppliers.list_count_sampler(data, config)

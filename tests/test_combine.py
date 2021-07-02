@@ -1,68 +1,49 @@
 import pytest
 from dataspec.loader import Loader
 import dataspec.suppliers as suppliers
-from dataspec import SpecException
-
-
-# to trigger registration
+from dataspec import builder, SpecException
 
 
 def test_neither_refs_nor_fields_specified():
-    spec = {"field:combine": {}}
+    spec = _combine_spec_refs(["ONE", "TWO"])
+    spec['field'].pop("refs")
     _test_invalid_combine_spec(spec)
 
 
 def test_refs_specified_but_not_defined():
-    spec = {"field:combine": {"refs": ["ONE", "TWO"]}}
+    spec = _combine_spec_refs(["ONE", "TWO"])
+    spec['refs'].pop('ONE')
+    spec['refs'].pop('TWO')
     _test_invalid_combine_spec(spec)
 
 
 def test_refs_specified_but_not_all_defined():
-    spec = {
-        "field:combine": {"refs": ["ONE", "TWO"]},
-        "refs": {
-            "ONE": ["a", "b", "c"]
-        }
-    }
+    spec = _combine_spec_refs(["ONE", "TWO"])
+    spec['refs'].pop('ONE')
     _test_invalid_combine_spec(spec)
 
 
 def test_fields_specified_but_not_all_defined():
-    spec = {
-        "field:combine": {"fields": ["ONE", "TWO"]},
-        "ONE": ["a", "b", "c"]
-    }
+    spec = _combine_spec_fields(["one", "two"])
+    spec.pop('one')
     _test_invalid_combine_spec(spec)
 
 
 def test_combine_list_no_refs_invalid():
-    spec = {"field": {"type": "combine-list"}}
+    spec = _combine_list_spec([["ONE", "TWO"]])
+    spec.pop('refs')
     _test_invalid_combine_spec(spec)
 
 
 def test_combine_list_empty_refs_invalid():
-    spec = {"field": {"type": "combine-list", "refs": []}}
-    _test_invalid_combine_spec(spec)
-
-
-def test_combine_list_single_list_refs_invalid():
-    spec = {"field": {"type": "combine-list", "refs": ["ONE"]}, "refs": {"ONE": "uno"}}
+    spec = _combine_list_spec([["ONE", "TWO"]])
+    spec['refs'] = {}
     _test_invalid_combine_spec(spec)
 
 
 def test_refs_specified_but_invalid_type():
-    spec = {
-        "field:combine": {"refs": ["ONE", "TWO"]},
-        "refs": {
-            "ONE": ["a", "b", "c"],
-            "TWO:configref": {
-                "config": {
-                    "prefix": "foo",
-                    "suffix": "@foo.bar"
-                }
-            }
-        }
-    }
+    spec = _combine_list_spec([["ONE", "TWO"]])
+    spec['refs']['TWO'] = builder.configref(prefix='foo', suffix='@bar')
     _test_invalid_combine_spec(spec)
 
 
@@ -86,46 +67,69 @@ def test_combine_lists():
 
 
 def test_combine_fields():
-    spec = {
-        "full_name:combine?join_with= ": {"fields": ["first", "last"]},
-        "first": ["bob", "rob", "ann", "sue"],
-        "last": ["smith", "jones", "frank", "wee"]
-    }
+    spec = builder.Builder() \
+        .add_field("first", builder.values(["bob", "rob", "ann", "sue"])) \
+        .add_field("last", builder.values(["smith", "jones", "frank", "wee"])) \
+        .add_field("full_name", builder.combine(fields=["first", "last"], join_with=' ')) \
+        .build()
+
     supplier = Loader(spec).get('full_name')
     assert supplier.next(0) == 'bob smith'
 
 
 def test_combine_list_spec_valid_but_weird1():
-    spec = {"field": {"type": "combine-list", "refs": [["ONE"]]}, "refs": {"ONE": "uno"}}
+    spec = _combine_list_spec([["uno"]])
     supplier = Loader(spec).get('field')
     assert supplier.next(0) == 'uno'
     assert supplier.next(1) == 'uno'
 
 
 def test_combine_list_spec_valid_but_weird2():
-    spec = {"field": {"type": "combine-list", "refs": [["ONE", "TWO"]]}, "refs": {"ONE": "uno", "TWO": "dos"}}
+    spec = _combine_list_spec([["uno", "dos"]])
     supplier = Loader(spec).get('field')
     assert supplier.next(0) == 'unodos'
     assert supplier.next(1) == 'unodos'
 
 
 def test_combine_list_spec_valid_normal():
-    spec = {
-        "field": {
-            "type": "combine-list",
-            "refs": [
-                ["ONE", "TWO"],
-                ["TWO", "TRE"],
-                ["TRE", "ONE"]
-            ]
-        },
-        "refs": {
-            "ONE": "uno",
-            "TWO": "dos",
-            "TRE": "tres"
-        }
-    }
+    ref_lists = [
+        ["ONE", "TWO"],
+        ["TWO", "TRE"],
+        ["TRE", "ONE"]
+    ]
+    spec = builder.Builder() \
+        .add_field("field", builder.combine_list(refs=ref_lists)) \
+        .add_ref("ONE", builder.values('uno')) \
+        .add_ref("TWO", builder.values('dos')) \
+        .add_ref("TRE", builder.values('tres')) \
+        .build()
+
     supplier = Loader(spec).get('field')
     assert supplier.next(0) == 'unodos'
     assert supplier.next(1) == 'dostres'
     assert supplier.next(2) == 'tresuno'
+
+
+def _combine_spec_refs(ref_names, **config):
+    build = builder.Builder() \
+        .add_field("field", builder.combine(refs=ref_names, **config))
+    for name in ref_names:
+        build.add_ref(name, builder.values(name))
+    return build.build()
+
+
+def _combine_spec_fields(field_names, **config):
+    build = builder.Builder() \
+        .add_field("field", builder.combine(fields=field_names, **config))
+    for name in field_names:
+        build.add_field(name, builder.values(name))
+    return build.build()
+
+
+def _combine_list_spec(ref_lists, **config):
+    build = builder.Builder() \
+        .add_field("field", builder.combine_list(refs=ref_lists, **config))
+    for ref_list in ref_lists:
+        for name in ref_list:
+            build.add_ref(name, builder.values(name))
+    return build.build()

@@ -4,7 +4,9 @@ Module for storing package wide common functions
 import os
 import importlib
 import logging
-import dataspec.casters as casters
+
+from . import casters
+from .model import DataSpec
 
 
 def load_custom_code(code_path):
@@ -14,7 +16,7 @@ def load_custom_code(code_path):
     :return: None
     """
     if not os.path.exists(code_path):
-        raise Exception(f'Path to {code_path} not found.')
+        raise FileNotFoundError(f'Path to {code_path} not found.')
     try:
         spec = importlib.util.spec_from_file_location("python_code", str(code_path))
         module = importlib.util.module_from_spec(spec)
@@ -23,7 +25,7 @@ def load_custom_code(code_path):
         logging.warning("Couldn't load custom Python code: %s: %s", code_path, str(exception))
 
 
-def is_affirmative(key, config, default=False):
+def is_affirmative(key: str, config: dict, default=False) -> bool:
     """
     Checks if the config value is one of true, yes, or on (case doesn't matter), default is False
     :param key: to check
@@ -35,7 +37,7 @@ def is_affirmative(key, config, default=False):
     return value in ['yes', 'true', 'on']
 
 
-def load_config(field_spec, loader):
+def load_config(field_spec, loader, **kwargs):
     """
     Loads the config and any secondary configs into one object
     :param field_spec: that should contain config
@@ -43,9 +45,10 @@ def load_config(field_spec, loader):
     :return: the full config
     """
     if not isinstance(field_spec, dict):
-        return {}
+        return kwargs
 
     config = field_spec.get('config', {})
+    config.update(kwargs)
     refkey = config.get('configref')
     if refkey:
         configref = loader.get_ref_spec(refkey)
@@ -63,9 +66,10 @@ def any_key_exists(config, keys):
     return any(key in config for key in keys)
 
 
-def update_config(spec, key, value):
-    """ add the key and value to the spec config """
-    config = spec.get('config', {})
-    config[key] = value
-    spec['config'] = config
-    return spec
+def get_raw_spec(data_spec):
+    """ The data spec may be raw or object version, this gets the raw underlying spec """
+    if isinstance(data_spec, DataSpec):
+        raw_spec = data_spec.raw_spec
+    else:
+        raw_spec = data_spec
+    return raw_spec

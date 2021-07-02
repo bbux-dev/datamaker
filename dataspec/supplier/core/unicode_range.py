@@ -2,15 +2,13 @@
 Module for handling unicode ranges
 """
 import json
-from dataspec import registry, ValueSupplierInterface, SpecException
-from dataspec.utils import any_key_exists
-from dataspec.suppliers import list_stat_sampler, list_count_sampler, from_list_of_suppliers
-import dataspec.schemas as schemas
+
+import dataspec
 
 UNICODE_RANGE_KEY = 'unicode_range'
 
 
-class UnicodeRangeSupplier(ValueSupplierInterface):
+class UnicodeRangeSupplier(dataspec.ValueSupplierInterface):
     """ Value Supplier for unicode_range type """
 
     def __init__(self, wrapped):
@@ -22,24 +20,24 @@ class UnicodeRangeSupplier(ValueSupplierInterface):
         return ''.join(as_str)
 
 
-@registry.schemas(UNICODE_RANGE_KEY)
+@dataspec.registry.schemas(UNICODE_RANGE_KEY)
 def get_unicode_range_schema():
-    return schemas.load(UNICODE_RANGE_KEY)
+    return dataspec.schemas.load(UNICODE_RANGE_KEY)
 
 
-@registry.types(UNICODE_RANGE_KEY)
+@dataspec.registry.types(UNICODE_RANGE_KEY)
 def configure_supplier(spec, _):
     """ configure the supplier for unicode_range types """
     if 'data' not in spec:
-        raise SpecException('data is Required Element for unicode_range specs: ' + json.dumps(spec))
+        raise dataspec.SpecException('data is Required Element for unicode_range specs: ' + json.dumps(spec))
     data = spec['data']
     if not isinstance(data, list):
-        raise SpecException(
+        raise dataspec.SpecException(
             f'data should be a list or list of lists with two elements for {UNICODE_RANGE_KEY} specs: ' + json.dumps(spec))
     config = spec.get('config', {})
     if isinstance(data[0], list):
         suppliers = [_single_range(sublist, config) for sublist in data]
-        return from_list_of_suppliers(suppliers, True)
+        return dataspec.suppliers.from_list_of_suppliers(suppliers, True)
     return _single_range(data, config)
 
 
@@ -47,12 +45,12 @@ def _single_range(data, config):
     # supplies range of data as floats
     range_data = list(range(_decode_num(data[0]), _decode_num(data[1]) + 1))
     # casts the floats to ints
-    if any_key_exists(config, ['mean', 'stddev']):
+    if dataspec.utils.any_key_exists(config, ['mean', 'stddev']):
         if 'as_list' not in config:
             config['as_list'] = 'true'
-        wrapped = list_stat_sampler(range_data, config)
+        wrapped = dataspec.suppliers.list_stat_sampler(range_data, config)
     else:
-        wrapped = list_count_sampler(range_data, config)
+        wrapped = dataspec.suppliers.list_count_sampler(range_data, config)
     return UnicodeRangeSupplier(wrapped)
 
 

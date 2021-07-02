@@ -2,16 +2,17 @@
 """
 Entry point for dataspec tool
 """
+import os
 import sys
 import json
 import argparse
 import logging
 import yaml
-from dataspec import Loader, preprocess_spec
+from dataspec import preprocess_spec
 import dataspec.template_engines as engines
 import dataspec.outputs as outputs
 import dataspec.types as types
-import dataspec.key_providers as key_providers
+import dataspec.builder as builder
 from dataspec import utils
 from dataspec import SpecException
 
@@ -50,41 +51,94 @@ def main():
                         help='Formatter for output records, default is none, valid are: ' + str(types.valid_formats()))
     parser.add_argument('--strict', action='store_true', default=False,
                         help='Enforce schema validation for all registered field specs')
+    parser.add_argument('--apply-raw', action='store_true', dest='apply_raw', default=False,
+                        help='Data from -s argument should be applied to the template with out treating as a Data Spec')
     parser.add_argument('--debug-spec', dest='debug_spec', action='store_true', default=False,
                         help='Debug spec after internal reformatting')
+    parser.add_argument('--debug-defaults', dest='debug_defaults', action='store_true', default=False,
+                        help='List default values from registry after any external code loading')
     parser.add_argument('-x', '--exclude-internal', dest='exclude_internal', action='store_true', default=False,
                         help='Do not include non data fields in output records')
+    parser.add_argument('--sample-lists', dest='sample_lists', action='store_true', default=False,
+                        help='Turns on sampling for all list backed types')
+    parser.add_argument('--defaults', help='Path to defaults overrides')
 
     try:
         args = parser.parse_args()
 
+        ###################
+        # Set Up
+        ###################
+
         _configure_logging(args)
         log.info('Starting Loading Configurations...')
-        log.debug("Parsing Args")
+        log.debug('Parsing Args')
 
         if args.code:
             log.debug('Loading custom code from %s', args.code)
             for code in args.code:
                 utils.load_custom_code(code)
 
+        ###################
+        # Default Overrides
+        ###################
+        if args.defaults:
+            defaults = _load_json_or_yaml(args.defaults)
+            for key, value in defaults.items():
+                types.set_default(key, value)
+        # command line overrides any configs
+        if args.sample_lists:
+            types.set_default('sample_mode', True)
+
+        # print out the defaults as currently registered
+        if args.debug_defaults:
+            writer = _get_writer(args, outfile='dataspec_defaults.json', overwrite=True)
+            defaults = dataspec.types.all_defaults()
+            writer.write(json.dumps(defaults, indent=4))
+            return
+
+        ###################
+        # Load Data Spec
+        ###################
+
         log.debug('Attempting to load Data Spec from %s', args.spec if args.spec else args.inline)
         spec = _load_spec(args)
-        if args.debug_spec:
-            print(json.dumps(preprocess_spec(spec), indent=4))
+        if spec is None:
             return
-        loader = Loader(spec, args.datadir, enforce_schema=args.strict)
 
+        ###################
+        # By Pass Arguments
+        ###################
+
+        # Only dump out the reformatted spec
+        if args.debug_spec:
+            writer = _get_writer(args)
+            writer.write(json.dumps(preprocess_spec(spec), indent=4))
+            return
+
+        # apply the spec as data to the template
+        if args.apply_raw:
+            engine = engines.for_file(args.template)
+            writer = _get_writer(args)
+            writer.write(engine.process(spec))
+            return
+
+        ###################
+        # Regular Flow
+        ##################
         output = _configure_output(args)
 
-        key_provider = key_providers.from_spec(loader.specs)
-
         log.info('Starting Processing...')
+        generator = builder.generator(
+            spec,
+            args.iterations,
+            enforce_schema=args.strict,
+            data_dir=args.datadir,
+            exclude_internal=args.exclude_internal,
+            output=output)
         for i in range(0, args.iterations):
-            group, keys = key_provider.get()
-            for key in keys:
-                value = loader.get(key).next(i)
-                output.handle(key, value)
-            output.finished_record(i, group, args.exclude_internal)
+            # Generator will handle using to configured output
+            next(generator)
         log.info('Finished Processing')
     except SpecException as exc:
         log.error(str(exc))
@@ -96,21 +150,11 @@ def _configure_output(args):
     If none of these configurations are specified, it will return the default output
     which is to print each value to standard out.
     """
-    if args.outdir:
-        log.debug('Creating output file writer for dir: %s', args.outdir)
-        writer = outputs.FileWriter(
-            outdir=args.outdir,
-            outname=args.outfileprefix,
-            extension=args.extension,
-            records_per_file=args.recordsperfile
-        )
-    else:
-        log.debug('Writing output to stdout')
-        writer = outputs.StdOutWriter()
+    writer = _get_writer(args)
 
     if args.template:
         log.debug('Using template from specified file: %s', args.template)
-        return outputs.RecordLevelOutput(engines.load(args.template), writer)
+        return outputs.RecordLevelOutput(engines.for_file(args.template), writer)
 
     if args.format:
         log.debug('Using %s formatter for output', args.format)
@@ -119,6 +163,33 @@ def _configure_output(args):
 
     # default
     return outputs.SingleFieldOutput(writer, args.printkey)
+
+
+def _get_writer(args, outfile: str = None, overwrite: bool = False) -> outputs.WriterInterface:
+    """
+    creates the appropriate output writer from the given args and params
+
+    If no output directory is specified/configured will write to stdout
+    """
+    if args.outdir:
+        log.debug('Creating output file writer for dir: %s', args.outdir)
+        if outfile:
+            writer = outputs.SingleFileWriter(
+                outdir=args.outdir,
+                outname=outfile,
+                overwrite=overwrite
+            )
+        else:
+            writer = outputs.FileWriter(
+                outdir=args.outdir,
+                outname=args.outfileprefix,
+                extension=args.extension,
+                records_per_file=args.recordsperfile
+            )
+    else:
+        log.debug('Writing output to stdout')
+        writer = outputs.StdOutWriter()
+    return writer
 
 
 def _load_spec(args):
@@ -134,19 +205,27 @@ def _load_spec(args):
         raise SpecException('Only one of --spec <spec path> or --inline "<spec string>" must be specified')
     if inline:
         return _parse_spec_string(inline)
-    with open(spec_path, 'r') as handle:
-        log.debug('Attempting to load spec as JSON')
+    return _load_json_or_yaml(data_path=spec_path)
+
+
+def _load_json_or_yaml(data_path):
+    """ attempts to load the data at path as JSON, if that fails tries as YAML """
+    if not os.path.exists(data_path):
+        log.error('Unable to load data from path: %s', data_path)
+        return None
+    with open(data_path, 'r') as handle:
+        log.debug('Attempting to load data as JSON')
         try:
             return json.load(handle)
         except json.decoder.JSONDecodeError:
-            log.debug('Spec is not Valid JSON')
+            log.debug('Data is not Valid JSON')
     # not JSON, try yaml
-    with open(spec_path, 'r') as handle:
-        log.debug('Attempting to load spec as YAML')
-        spec = yaml.load(handle, Loader=yaml.FullLoader)
-    if not isinstance(spec, dict):
-        raise SpecException(f'Unable to load spec from path: {spec_path}, Please verify it is valid JSON or YAML')
-    return spec
+    with open(data_path, 'r') as handle:
+        log.debug('Attempting to load data as YAML')
+        loaded = yaml.load(handle, Loader=yaml.FullLoader)
+    if not isinstance(loaded, dict):
+        raise SpecException(f'Unable to load data from path: {data_path}, Please verify it is valid JSON or YAML')
+    return loaded
 
 
 def _parse_spec_string(inline: str):
@@ -178,7 +257,8 @@ def _configure_logging(args):
 
 if __name__ == '__main__':
     # this activates the decorators, so they will be discoverable
-    from dataspec.type_handlers import *
+    from dataspec.supplier import *
+    from dataspec.defaults import *
     import dataspec.preprocessor
     import dataspec.logging_handler
 

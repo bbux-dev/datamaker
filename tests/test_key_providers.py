@@ -1,43 +1,24 @@
 import pytest
-from dataspec import key_providers, SpecException
-
-
-def test_invalid_fields_name():
-    spec = {
-        "one": ["uno", "ichi"],
-        "two": ["dos", "ni"],
-        "field_groups": {
-            "one_two": {
-                "weight": 1.0,
-                "name_should_be_fields": ["one", "two"],
-            }
-        }
-    }
-    with pytest.raises(SpecException):
-        key_providers.from_spec(spec).get()
+from dataspec import builder, key_providers, SpecException
 
 
 def test_no_field_groups():
-    spec = {
-        "one": ["uno", "ichi"],
-        "two": ["dos", "ni"],
-    }
+    spec = one_two_builder().build()
     provider = key_providers.from_spec(spec)
 
     assert _get_keys(provider) == ['one', 'two']
 
 
 def test_list_of_fields():
-    spec = {
-        "one": ["uno", "ichi"],
-        "two": ["dos", "ni"],
-        "three": ["tres", "son"],
-        "field_groups": [
-            ["one"],
-            ["one", "two"],
-            ["one", "two", "three"]
-        ]
-    }
+    field_groups = [
+        ["one"],
+        ["one", "two"],
+        ["one", "two", "three"]
+    ]
+
+    spec_builder = one_two_three_builder()
+    spec_builder.add_field_groups(field_groups),
+    spec = spec_builder.build()
     provider = key_providers.from_spec(spec)
 
     assert _get_keys(provider) == ['one']
@@ -51,21 +32,11 @@ def _get_keys(provider):
 
 
 def test_weighted_field_groups():
-    spec = {
-        "one": ["uno", "ichi"],
-        "two": ["dos", "ni"],
-        "three": ["tres", "son"],
-        "field_groups": {
-            "groupA": {
-                "weight": 0.7,
-                "fields": ["one", "two"],
-            },
-            "groupB": {
-                "weight": 0.3,
-                "fields": ["one", "two", "three"]
-            }
-        }
-    }
+    spec_builder = one_two_three_builder()
+    spec_builder.weighted_field_group("groupA", fields=["one", "two"], weight=0.7)
+    spec_builder.weighted_field_group("groupB", fields=["one", "two", "three"], weight=0.3),
+    spec = spec_builder.build()
+
     provider = key_providers.from_spec(spec)
     for _ in range(100):
         field_group, keys = provider.get()
@@ -74,17 +45,26 @@ def test_weighted_field_groups():
 
 
 def test_named_field_groups():
-    spec = {
-        "one": ["uno", "ichi"],
-        "two": ["dos", "ni"],
-        "three": ["tres", "son"],
-        "field_groups": {
-            "groupA": ["one", "two"],
-            "groupB": ["one", "two", "three"]
-        }
-    }
+    spec_builder = one_two_three_builder()
+    spec_builder.named_field_group("groupA", fields=["one", "two"])
+    spec_builder.named_field_group("groupB", fields=["one", "two", "three"]),
+    spec = spec_builder.build()
+
     provider = key_providers.from_spec(spec)
     for _ in range(100):
         field_group, keys = provider.get()
         assert field_group == 'groupA' or field_group == 'groupB'
         assert keys == ['one', 'two'] or keys == ['one', 'two', 'three']
+
+
+def one_two_three_builder():
+    spec_builder = one_two_builder()
+    spec_builder.values('three', ["tres", "son"])
+    return spec_builder
+
+
+def one_two_builder():
+    spec_builder = builder.Builder()
+    spec_builder.values('one', ["uno", "ichi"])
+    spec_builder.values('two', ["dos", "ni"])
+    return spec_builder

@@ -1,13 +1,13 @@
 """
-Module for implementation of select list subset value supplier
+Module list stats sampler class
 """
 import math
 import random
-from dataspec.utils import is_affirmative
-from dataspec.supplier.value_supplier import ValueSupplierInterface
+
+import dataspec
 
 
-class ListStatSamplerSupplier(ValueSupplierInterface):
+class ListStatSamplerSupplier(dataspec.ValueSupplierInterface):
     """
     Implementation for supplying values from a list by select a portion of them
     and optionally joining them by some delimiter
@@ -15,7 +15,7 @@ class ListStatSamplerSupplier(ValueSupplierInterface):
 
     def __init__(self, data, config):
         self.values = data
-        self.mean = float(config.get('mean'))
+        self.mean = float(config.get('mean', 1))
         self.min = int(config.get('min', 1))
         self.max = int(config.get('max', len(self.values)))
         # attempt to create a reasonable standard deviation
@@ -25,7 +25,7 @@ class ListStatSamplerSupplier(ValueSupplierInterface):
             lower_delta = abs(int(self.mean - self.max))
         self.stddev = float(config.get('stddev', lower_delta))
         self.join_with = config.get('join_with', ' ')
-        self.as_list = is_affirmative('as_list', config, False)
+        self.as_list = dataspec.utils.is_affirmative('as_list', config, False)
 
     def next(self, _):
         if self.stddev == 0:

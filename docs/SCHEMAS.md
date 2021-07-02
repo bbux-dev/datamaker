@@ -262,7 +262,7 @@ Types covered by schema: `date, date.iso, date.iso.us`
           "description": "Valid date format string",
           "type": "string"
         },
-        "delta_days": {
+        "duration_days": {
           "oneOf": [
             {"type": "integer"},
             {
@@ -273,7 +273,7 @@ Types covered by schema: `date, date.iso, date.iso.us`
             }
           ]
         },
-        "anchor": {"type": "string"},
+        "start": {"type": "string"},
         "offset": {"type": "integer"}
       }
     },

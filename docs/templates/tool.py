@@ -3,9 +3,10 @@
 Utiltity to validate json and yaml example specs and apply them to templates for the READMEs
 """
 import os
+import glob
 import json
-import yaml
 import argparse
+import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
@@ -21,11 +22,18 @@ def main():
     parser.add_argument('-m', '--mode', default="verify",
                         choices=['verify', 'test', 'apply', 'dump', 'dump-yaml', 'all'],
                         help='what mode to run in')
+    parser.add_argument('-d', '--debug-data', dest='debug_data', action='store_true',
+                        help='Dump out the combined data with schemas')
 
     args = parser.parse_args()
 
     with open(args.input, encoding='utf-8') as f:
         data = json.load(f)
+
+    data = append_schemas(data)
+    if args.debug_data:
+        print(json.dumps(data, indent=4))
+        return
 
     if args.mode == 'verify' or args.mode == 'all':
         verify_data(data.get('examples', {}), args.key_filter)
@@ -35,6 +43,22 @@ def main():
         dump_data(data.get('examples', {}), args.key_filter)
     if args.mode == 'dump-yaml':
         dump_yaml(data.get('examples', {}), args.key_filter)
+
+
+def append_schemas(data):
+    for f in glob.glob(os.sep.join(['..', '..', 'dataspec', 'schema', '*.schema.json'])):
+        with open(f) as handle:
+            name = f.split(os.sep)[-1].replace('.schema.json', '')
+            schema = json.load(handle)
+            schemas = data.get('schemas', {})
+            schemas[name] = schema
+            data['schemas'] = schemas
+    with open(os.sep.join(['..', '..', 'dataspec', 'schema', 'definitions.json'])) as handle:
+        definitions = json.load(handle)
+        schemas = data.get('schemas', {})
+        schemas[name] = schema
+        data["definitions"] = definitions["definitions"]
+    return data
 
 
 def dump_yaml(data, specific_keys):
@@ -73,6 +97,11 @@ def dump_data(data, specific_keys):
         if 'yaml' in value:
             print('```')
             print(value['yaml'])
+            print('```')
+            print()
+        if 'api' in value:
+            print('```')
+            print(value['api'])
             print('```')
             print()
         print()

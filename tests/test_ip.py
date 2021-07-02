@@ -1,22 +1,15 @@
 import pytest
 from dataspec.loader import Loader
-from dataspec import SpecException
+from dataspec import builder, SpecException
 # need this to trigger registration
-from dataspec.type_handlers import ip_handler
+from dataspec.supplier.core import ip_addresses
 
 
 def test_ip_v4_spec():
-    spec = {
-        "fooip": {
-            "type": "ipv4",
-            "config": {
-                "cidr": "192.168.0.0/16"
-            }
-        }
-    }
+    spec = _ipv4_spec(cidr="192.168.0.0/16")
 
     loader = Loader(spec)
-    supplier = loader.get('fooip')
+    supplier = loader.get('network')
 
     value = supplier.next(0)
     assert value.startswith('192.168.')
@@ -155,3 +148,21 @@ def _create_ip_spec_with_base(base):
             "config": {"base": base, "sample": "true"}
         }
     }
+
+
+def _ip_spec(**config):
+    return builder.Builder() \
+        .add_field('network', builder.ip(**config)) \
+        .build()
+
+
+def _ipv4_spec(**config):
+    return builder.Builder() \
+        .add_field('network', builder.ipv4(**config)) \
+        .build()
+
+
+def _ip_precise_spec(**config):
+    return builder.Builder() \
+        .add_field('network', builder.ip_precise(**config)) \
+        .build()

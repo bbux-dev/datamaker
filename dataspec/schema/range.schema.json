@@ -12,7 +12,8 @@
         "suffix": {"$ref": "#/definitions/suffix"},
         "quote": {"$ref": "#/definitions/quote"},
         "count": {"$ref": "#/definitions/count"},
-        "cast": {"$ref": "#/definitions/cast"}
+        "cast": {"$ref": "#/definitions/cast"},
+        "precision": {"$ref": "#/definitions/precision"}
       }
     },
     "data": {

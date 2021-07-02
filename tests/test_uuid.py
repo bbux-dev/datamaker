@@ -1,15 +1,14 @@
 import re
-from dataspec.loader import Loader
+from dataspec import builder, Loader
 # need this to trigger registration
-from dataspec.type_handlers import uuid_handler
+from dataspec.supplier.core import uuid_handler
 
 
 UUID_REGEX = re.compile('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I)
 
 
 def test_uuid_spec():
-    spec = {"foo": {"type": "uuid"}}
-
+    spec = builder.single_field("foo:uuid", {}).build()
     loader = Loader(spec)
     supplier = loader.get('foo')
 

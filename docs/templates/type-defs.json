@@ -1,0 +1,194 @@
+{
+  "types": [
+    {
+      "type_name": "values",
+      "params": [
+        {
+          "name": "data",
+          "type": "Union[int, float, str, bool, List, Dict[str, float]]",
+          "description": "to use to supply values"
+        }
+      ],
+      "spec_params": [{"name": "data", "value": "data"}]
+    },
+    {
+      "type_name": "combine",
+      "params": [
+        {
+          "name": "refs",
+          "type": "List[Union[str, FieldInfo]] = None",
+          "description": "refs to combine"
+        },
+        {
+          "name": "fields",
+          "type": "List[Union[str, FieldInfo]] = None",
+          "description": "fields to combine"
+        }
+      ],
+      "custom_logic": "    if refs is not None:\n        spec['refs'] = _create_key_list(refs)\n    if fields is not None:\n        spec['fields'] = _create_key_list(fields)"
+    },
+    {
+      "type_name": "combine-list",
+      "params": [
+        {
+          "name": "refs",
+          "type": "List[List[Union[str, FieldInfo]]] = None",
+          "description": "lists of lists of refs to combine"
+        }
+      ],
+      "spec_params": [{"name": "refs", "value": "[_create_key_list(ref_list) for ref_list in refs]"}]
+    },
+    {
+      "type_name": "range",
+      "params": [
+        {
+          "name": "start",
+          "type": "Union[int, float]",
+          "description": "start of range inclusive"
+        },
+        {
+          "name": "end",
+          "type": "Union[int, float]",
+          "description": "end of range inclusive"
+        },
+        {
+          "name": "step",
+          "type": "Union[int, float]",
+          "description": "step for range"
+        }
+      ],
+      "spec_params": [{"name": "data", "value": "[start, end, step]"}]
+    },
+    {
+      "type_name": "rand_range",
+      "params": [
+        {
+          "name": "start",
+          "type": "Union[int, float]",
+          "description": "start of range inclusive"
+        },
+        {
+          "name": "end",
+          "type": "Union[int, float]",
+          "description": "end of range inclusive"
+        }
+      ],
+      "spec_params": [{"name": "data", "value": "[start, end]"}]
+    },
+    {
+      "type_name": "date"
+    },
+    {
+      "type_name": "date.iso"
+    },
+    {
+      "type_name": "date.iso.us"
+    },
+    {
+      "type_name": "uuid"
+    },
+    {
+      "type_name": "char_class",
+      "params": [
+        {
+          "name": "data",
+          "type": "Union[str, List[str]]",
+          "description": "either known character class or set of characters to use for sampling from"
+        }
+      ],
+      "spec_params": [{"name": "data", "value": "data"}]
+    },
+    {
+      "type_name": "char_class_abbrev",
+      "params": [
+        {
+          "name": "cc_abbrev",
+          "type": "str",
+          "description": "alternative type abbreviation i.e. ascii, cc-ascii, visible, cc-visible"
+        }
+      ],
+      "custom_logic": "    if cc_abbrev.startswith('cc-'):\n        spec['type'] = cc_abbrev\n    else:\n        spec['type'] = 'cc-' + cc_abbrev"
+    },
+    {
+      "type_name": "unicode_range",
+      "params": [
+        {
+          "name": "data",
+          "type": "Union[List[str], List[List[str]]]",
+          "description": "hex start and end unicode ranges or lists of these"
+        }
+      ],
+      "spec_params": [{"name": "data", "value": "data"}]
+    },
+    {
+      "type_name": "geo.lat"
+    },
+    {
+      "type_name": "geo.long"
+    },
+    {
+      "type_name": "geo.pair"
+    },
+    {
+      "type_name": "ip"
+    },
+    {
+      "type_name": "ipv4"
+    },
+    {
+      "type_name": "ip.precise"
+    },
+    {
+      "type_name": "weightedref",
+      "params": [
+        {
+          "name": "data",
+          "type": "Dict[str, float]",
+          "description": "Mapping of ref name to weight"
+        }
+      ],
+      "spec_params": [{"name": "data", "value": "data"}]
+    },
+    {
+      "type_name": "select_list_subset",
+      "params": [
+        {
+          "name": "data",
+          "type": "List[Any] = None",
+          "description": "to select from"
+        },
+        {
+          "name": "ref",
+          "type": "str = None",
+          "description": "that contains data to select from"
+        }
+      ],
+      "custom_logic": "    if data is not None:\n        spec['data'] = data\n    if ref is not None:\n        spec['ref'] = ref"
+    },
+    {
+      "type_name": "csv"
+    },
+    {
+      "type_name": "csv_select",
+      "params": [
+        {
+          "name": "data",
+          "type": "Dict[str, int] = None",
+          "description": "param data: Mapping of field name to one based column number"
+        }
+      ],
+      "custom_logic": "    if data is not None:\n        spec['data'] = data"
+    },
+    {
+      "type_name": "nested",
+      "params": [
+        {
+          "name": "fields",
+          "type": "Dict[str, Dict]",
+          "description": "sub field specifications"
+        }
+      ],
+      "spec_params": [{"name": "fields", "value": "fields"}]
+    }
+  ]
+}

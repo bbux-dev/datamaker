@@ -92,3 +92,5 @@ ENV/
 # intellij
 .idea
 
+# mypy
+.mypy_cache

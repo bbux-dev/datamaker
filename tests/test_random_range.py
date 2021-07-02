@@ -8,3 +8,4 @@ def test_random_range():
     assert as_decimal >= -180.0
     assert as_decimal <= -90.0
     assert as_decimal.as_tuple().exponent == -7
+

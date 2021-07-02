@@ -1,31 +1,26 @@
 import string
 import pytest
-from dataspec import Loader, SpecException
-from dataspec.type_handlers import unicode_range
+from dataspec import builder, Loader, SpecException
+from dataspec.supplier.core import unicode_range
 
 
 def test_unicode_no_data_element():
-    spec = {"field": {"type": "unicode_range"}}
+    spec = builder.single_field("field", builder.unicode_range(data=None)).build()
+    spec['field'].pop('data')
+
     with pytest.raises(SpecException):
         Loader(spec).get("field")
 
 
 def test_unicode_data_is_not_list():
-    spec = {"field": {"type": "unicode_range", "data": "0x3040,0x309f"}}
+    spec = builder.single_field("field", builder.unicode_range(data="0x3040,0x309f")).build()
     with pytest.raises(SpecException):
         Loader(spec).get("field")
 
 
 def test_unicode_range_single_range_as_hex():
-    spec = {
-        "text": {
-            "type": "unicode_range",
-            "data": [0x3040, 0x309f],
-            "config": {
-                "count": 5
-            }
-        }
-    }
+    field_spec = builder.unicode_range(data=[0x3040, 0x309f], count=5)
+    spec = builder.single_field("text", field_spec).build()
     supplier = Loader(spec).get('text')
     first = supplier.next(0)
     for c in first:
@@ -33,18 +28,8 @@ def test_unicode_range_single_range_as_hex():
 
 
 def test_unicode_range_single_range_as_hex_strings():
-    spec = {
-        "text": {
-            "type": "unicode_range",
-            "data": ['0x3040', '0x309f'],
-            "config": {
-                "mean": 5,
-                "stddev": 2,
-                "min": 2,
-                "max": 7
-            }
-        }
-    }
+    field_spec = builder.unicode_range(data=[0x3040, 0x309f], mean=5, stddev=2, min=2, max=7)
+    spec = builder.single_field("text", field_spec).build()
     supplier = Loader(spec).get('text')
     first = supplier.next(0)
     assert 2 <= len(first) <= 7
@@ -53,19 +38,13 @@ def test_unicode_range_single_range_as_hex_strings():
 
 
 def test_unicode_multiple_ranges():
-    spec = {
-        "text": {
-            "type": "unicode_range",
-            "data": [
-                ['0x0590', '0x05ff'],
-                ['0x3040', '0x309f']
-            ],
-            "config": {
-                "min": 3,
-                "max": 7
-            }
-        }
-    }
+    data = [
+        ['0x0590', '0x05ff'],
+        ['0x3040', '0x309f']
+    ]
+    field_spec = builder.unicode_range(data=data, min=3, max=7)
+    spec = builder.single_field("text", field_spec).build()
+
     supplier = Loader(spec).get('text')
     first = supplier.next(0)
     assert 3 <= len(first) <= 7

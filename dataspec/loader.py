@@ -4,9 +4,12 @@ delegating the handling of various data types.
 """
 
 import json
+from typing import Union, Dict
+from . import suppliers
+from . import utils
+from .model import DataSpec
 from .types import lookup_type, lookup_schema, registry
 from .schemas import validate_schema_for_spec
-from . import suppliers
 from .exceptions import SpecException
 
 
@@ -32,9 +35,10 @@ class Loader:
     """
     RESERVED = ['type', 'data', 'ref', 'refs', 'config']
 
-    def __init__(self, data_spec, datadir='./data', enforce_schema=False):
-        self.specs = preprocess_spec(data_spec)
-        self.datadir = datadir
+    def __init__(self, data_spec, data_dir='./data', enforce_schema=False):
+        raw_spec = utils.get_raw_spec(data_spec)
+        self.specs = preprocess_spec(raw_spec)
+        self.datadir = data_dir
         self.enforce_schema = enforce_schema
         self.cache = {}
         self.refs = Refs(self.specs.get('refs'))
@@ -72,6 +76,8 @@ class Loader:
         if spec_type == 'configref':
             raise SpecException(f'Cannot use configref as source of data: {json.dumps(field_spec)}')
         if spec_type is None or spec_type == 'values':
+            if self.enforce_schema:
+                _validate_schema_for_spec(spec_type, field_spec)
             supplier = suppliers.values(field_spec, self)
         else:
             handler = lookup_type(spec_type)
@@ -84,6 +90,8 @@ class Loader:
             supplier = suppliers.cast_supplier(supplier, field_spec)
         if suppliers.is_decorated(field_spec):
             supplier = suppliers.decorated(field_spec, supplier)
+        if suppliers.is_buffered(field_spec):
+            supplier = suppliers.buffered(supplier, field_spec)
         return supplier
 
     def get_ref_spec(self, key):
@@ -98,12 +106,13 @@ def _validate_schema_for_spec(spec_type, field_spec):
     validate_schema_for_spec(spec_type, field_spec, type_schema)
 
 
-def preprocess_spec(raw_spec):
+def preprocess_spec(data_spec: Union[Dict[str, Dict], DataSpec]):
     """
     Uses the registered preprocessors to cumulatively update the spec
-    :param raw_spec: to preprocesss
+    :param data_spec: to preprocess
     :return: updated version of the spec after all preprocessors have run on it
     """
+    raw_spec = utils.get_raw_spec(data_spec)
     updated = dict(raw_spec)
     preprocessors = registry.preprocessors.get_all()
     for name in preprocessors:

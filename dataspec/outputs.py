@@ -3,8 +3,11 @@ Module holds output related classes and functions
 """
 import os
 import json
+import logging
 import dataspec
 from .types import registry
+
+log = logging.getLogger(__name__)
 
 
 @dataspec.registry.formats('json')
@@ -16,7 +19,7 @@ def format_json(record):
 @dataspec.registry.formats('json-pretty')
 def format_json_pretty(record):
     """ pretty prints the record as json """
-    return json.dumps(record, indent=4)
+    return json.dumps(record, indent=dataspec.types.get_default('json_indent'))
 
 
 @dataspec.registry.formats('csv')
@@ -115,8 +118,30 @@ class StdOutWriter(WriterInterface):
     Writes values to stdout
     """
 
-    def write(self, value):
+    def write(self, value: str):
         print(value)
+
+
+class SingleFileWriter(WriterInterface):
+    """
+    Writes all values to same file
+    """
+
+    def __init__(self, outdir: str, outname: str, overwrite: bool):
+        self.outdir = outdir
+        self.outname = outname
+        self.overwrite = overwrite
+
+    def write(self, value):
+        outfile = os.path.join(self.outdir, self.outname)
+        if self.overwrite:
+            mode = 'w'
+        else:
+            mode = 'a'
+        with open(outfile, mode) as handle:
+            handle.write(value)
+            handle.write('\n')
+        log.info('Wrote data to %s', outfile)
 
 
 class FileWriter(WriterInterface):

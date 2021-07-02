@@ -8,7 +8,8 @@ provides classes that provide these fields according to various schemes such as 
 """
 from typing import List, Tuple, Union, Dict
 import json
-from dataspec import suppliers, ValueSupplierInterface
+from . import suppliers, ValueSupplierInterface
+from .model import DataSpec
 from .exceptions import SpecException
 
 ROOT_KEYS = ['refs', 'field_groups']
@@ -17,14 +18,14 @@ ROOT_KEYS = ['refs', 'field_groups']
 class KeyProviderInterface:
     """ Interface for KeyProviders """
 
-    def get(self) -> (str, List[str]):
+    def get(self) -> Tuple[str, List[str]]:
         """
         get the next set of field names to process
         :return: key_group_name, key_list_for_group_name
         """
 
 
-def from_spec(specs: dict) -> KeyProviderInterface:
+def from_spec(specs: Union[dict, DataSpec]) -> KeyProviderInterface:
     """
     creates the appropriate key provider for the fields from the supplied spec
 
@@ -52,8 +53,12 @@ def from_spec(specs: dict) -> KeyProviderInterface:
       "groupB": ["one", "two", "three"], ...
     }
     """
-    if 'field_groups' in specs:
-        field_groups = specs['field_groups']
+    if isinstance(specs, DataSpec):
+        raw_spec = specs.raw_spec
+    else:
+        raw_spec = specs
+    if 'field_groups' in raw_spec:
+        field_groups = raw_spec['field_groups']
         if isinstance(field_groups, dict):
             if isinstance(list(field_groups.values())[0], list):
                 return _create_rotating_lists_key_provider(field_groups)
@@ -61,7 +66,7 @@ def from_spec(specs: dict) -> KeyProviderInterface:
         if isinstance(field_groups, list):
             return _create_rotating_lists_key_provider(field_groups)
     # default when no field groups specified
-    keys = [key for key in specs.keys() if key not in ROOT_KEYS]
+    keys = [key for key in raw_spec.keys() if key not in ROOT_KEYS]
     return KeyListProvider(keys)
 
 

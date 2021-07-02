@@ -2,6 +2,7 @@ from dataspec import Loader
 import dataspec.suppliers as suppliers
 from dataspec.loader import preprocess_spec
 from dataspec.exceptions import SpecException
+import dataspec.builder as builder
 from collections import Counter
 import pytest
 
@@ -30,9 +31,18 @@ def test_weighted_values():
     assert 'bar' in most_common_keys
 
 
+def test_weighted_values_non_zero_count():
+    spec = builder.values({'foo': 0.5, 'bar': 0.4, 'baz': 0.1}, count=2)
+    supplier = suppliers.values(spec)
+
+    data = supplier.next(0)
+    assert isinstance(data, list)
+    assert len(data) == 2
+
+
 def test_shortcut_notation():
     # not type or data key, just what would have been the value for the data key
-    spec = {'foo': 0.5, 'bar': 0.4, 'baz': 0.1}
+    spec = builder.values({'foo': 0.5, 'bar': 0.4, 'baz': 0.1})
     most_common_keys = _get_most_common_keys(spec, 100, 2)
 
     assert 'foo' in most_common_keys
@@ -49,7 +59,7 @@ def _get_most_common_keys(spec, iterations, num_keys_to_collect):
 
 def test_sampling_mode_invalid_for_weighted_values():
     # sampling is only valid for list based suppliers
-    spec = {'foo?sample=True': {10: 0.5, 20: 0.3, 30: 0.2}}
+    spec = builder.single_field('foo?sample=True', {10: 0.5, 20: 0.3, 30: 0.2}).build()
     _test_invalid_spec(spec, 'foo')
 
 
@@ -78,24 +88,16 @@ def test_count_param_valid():
 
 def test_configref_for_values():
     """ verifies that the values ref inherits the config from the configref """
-    spec = {
-        "name?configref=quoteit": ["bob", "joe", "ann", "sue"],
-        "refs": {
-            "quoteit": {
-                "type": "configref",
-                "config": {
-                    "quote": "\""
-                }
-            }
-        }
-    }
+    spec = builder.single_field("name?configref=quoteit", ["bob", "joe", "ann", "sue"]) \
+        .add_ref("quoteit", builder.configref(quote="\"")) \
+        .build()
     supplier = Loader(spec).get('name')
     assert supplier.next(0) == '"bob"'
 
 
 def test_values_list_order():
     data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    spec = {'field': data}
+    spec = builder.single_field('field', data).build()
     supplier = Loader(spec).get('field')
 
     values = [supplier.next(i) for i in range(10)]
@@ -103,14 +105,8 @@ def test_values_list_order():
 
 
 def test_values_count_as_list():
-    spec = {
-        'field': {
-            'data': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            'config': {
-                'count': [2, 3]
-            }
-        }
-    }
+    data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    spec = builder.single_field('field', builder.values(data, count=[2, 3])).build()
     supplier = Loader(spec).get('field')
 
     first = supplier.next(0)

@@ -2,10 +2,30 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/bbux-dev/dataspec/schemas/definitions.json",
   "definitions": {
-    "prefix": {"type": "string"},
-    "suffix": {"type": "string"},
-    "quote": {"type": "string"},
-    "join_with": {"type": "string"},
+    "prefix": {
+      "type": "string",
+      "description": "Prefix string pre-pended to all values for field",
+      "default": null,
+      "examples": ["@", "www.", "<h1>", "#"]
+    },
+    "suffix": {
+      "type": "string",
+      "description": "Suffix string appended to all values for field",
+      "default": null,
+      "examples": [".com", "</h1>", "@"]
+    },
+    "quote": {
+      "type": "string",
+      "description": "String to surround all values for field with",
+      "default": null,
+      "examples": ["\"", "'", "||"]
+    },
+    "join_with": {
+      "type": "string",
+      "description": "String or character to join multiple values together with",
+      "default": null,
+      "examples": [",", "@", " OR ", " && "]
+    },
     "affirmative_check": {
       "description": "Either true, false, 'on', 'off', 'yes', 'no', 'true', 'false', case insensitive",
       "oneOf": [
@@ -13,9 +33,18 @@
         {"type": "string", "pattern": "[t|T][r|R][u|U][e|E]|[f|F][a|A][l|L][s|S][e|E]|[y|Y][e|E][s|S]|[n|N][o|O]|[o|O][n|N]|[o|O][f|F][f|F]"}
       ]
     },
-    "as_list": {"$ref": "#/definitions/affirmative_check"},
-    "cast": {"type": "string", "enum": ["i", "int", "f", "float", "s", "string", "string", "h", "hex"]},
+    "as_list": {
+      "description": "If the values should be returned as a list. Either true, false, 'on', 'off', 'yes', 'no', 'true', 'false', case insensitive",
+      "$ref": "#/definitions/affirmative_check"
+    },
+    "cast": {
+      "type": "string",
+      "description": "Type to cast values to for field",
+      "examples": ["i", "int", "f", "float", "s", "str", "string", "h", "hex"],
+      "enum": ["i", "int", "f", "float", "s", "str", "string", "h", "hex"]
+    },
     "count": {
+      "description": "Number of values to include, constant, list, or weighted values spec",
       "oneOf": [
         {"type": "integer"},
         {
@@ -34,14 +63,17 @@
         }
       ]
     },
-    "min": {"type": "number"},
-    "max": {"type": "number"},
-    "mean": {"type": "number"},
-    "stddev": {"type": "number"},
-    "precision": {"type": "integer"},
+    "precision": {
+      "type": "integer",
+      "description": "How many digits after decimal point to include in values",
+      "default": null,
+      "examples": [0, 2, 7, 12],
+      "minimum": 0
+    },
     "bbox": {
-      "description": "Bounding box for geo related points, describes lower left and upper right coordinates with longitude first",
       "type": "array",
+      "description": "Bounding box for geo related points, describes lower left and upper right coordinates with longitude first",
+      "default": null,
       "minItems": 4,
       "maxItems": 4,
       "items":[

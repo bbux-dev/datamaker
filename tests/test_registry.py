@@ -1,6 +1,6 @@
 import os
+import pytest
 import dataspec
-from dataspec import suppliers
 from dataspec.loader import Loader
 import dataspec.types as types
 from dataspec.utils import load_custom_code
@@ -59,3 +59,9 @@ def test_registry_from_file():
     supplier = handler(spec.get('foo'), loader)
 
     assert supplier.next(0) == 'doe a dear'
+
+
+def test_registry_error_case():
+    with pytest.raises(FileNotFoundError):
+        # string_reverser, same as above just different key
+        load_custom_code(f'{test_dir}/custom_does_not_exist.py')

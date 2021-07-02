@@ -1,6 +1,6 @@
 from dataspec.preprocessor import preprocess_spec, preprocess_csv_select, preprocess_nested
 from dataspec.preprocessor import _parse_key, _is_spec_data, _update_no_params
-from dataspec import SpecException
+from dataspec import builder, SpecException
 import pytest
 
 parse_key_tests = [
@@ -178,13 +178,13 @@ nested_transform_tests = [
         {
             "geo": {
                 "type": "nested",
-                "config": {"as_array": "true"},
+                "config": {"as_list": "true"},
                 "fields": {"lat": 55.5, "long": 99.9}
             }
         }, {
             "geo": {
                 "type": "nested",
-                "config": {"as_array": "true"},
+                "config": {"as_list": "true"},
                 "fields": {
                     "lat": {"type": "values", "data": 55.5},
                     "long": {"type": "values", "data": 99.9}
@@ -198,7 +198,7 @@ nested_transform_tests = [
             "refs": {
                 "geo": {
                     "type": "nested",
-                    "config": {"as_array": "true"},
+                    "config": {"as_list": "true"},
                     "fields": {
                         "lat": 55.5,
                         "long": 99.9
@@ -211,7 +211,7 @@ nested_transform_tests = [
             "refs": {
                 "geo": {
                     "type": "nested",
-                    "config": {"as_array": "true"},
+                    "config": {"as_list": "true"},
                     "fields": {
                         "lat": {"type": "values", "data": 55.5},
                         "long": {"type": "values", "data": 99.9}
@@ -219,6 +219,12 @@ nested_transform_tests = [
                 }
             }
         }
+    ),
+    (
+        builder.single_field('enemies', builder.nested(
+            builder.single_field('inner', ['bat', 'slime', 'orc']).build())).build(),
+        builder.single_field('enemies', builder.nested(
+            builder.single_field('inner', builder.values(['bat', 'slime', 'orc'])).build())).build(),
     )
 ]
 

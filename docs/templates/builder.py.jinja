@@ -1,0 +1,269 @@
+"""
+Module for building Data Specs programmatically
+"""
+{% macro func_name(type_name) -%}
+{{ type_name.replace('.', '_').replace('-', '_').replace('range', 'range_spec').replace('_range_spec', '_range') }}{%- endmacro %}
+{% macro build_params(type) -%}
+{% if type.params is defined -%}
+{% for param in type.params -%}{{ param.name }}, {%- endfor %}
+{%- endif %}
+{%- endmacro %}
+{% macro build_typed_params(type) -%}
+{% if type.params is defined -%}
+{% for param in type.params -%}{{ param.name }}: {{ param.type }}, {%- endfor %}
+{%- endif %}
+{%- endmacro %}
+{% macro build_param_docs(type, indent) -%}
+{% if type.params is defined -%}
+{% for param in type.params %}
+{{ indent }}:param {{ param.name }}: {{ param.description }}{% endfor %}
+{%- endif %}
+{%- endmacro %}
+{% macro build_spec(type) %}
+    spec = {
+        "type": "{{ type.type_name }}"{% if type.spec_params is defined -%},
+{% for param in type.spec_params -%}
+        "{{ param.name }}": {{ param.value }}{{ "," if not loop.last else "" }}
+{%- endfor %}
+{%- endif %}
+    }
+{% endmacro %}
+{% macro add_custom_logic(type) -%}
+{% if type.custom_logic is defined -%}
+{{ type.custom_logic }}
+{%- endif %}
+{% endmacro %}
+from typing import Any, Union, Dict, List
+import json
+import logging
+
+log = logging.getLogger(__name__)
+
+
+class FieldInfo:
+    """
+    Class for holding info after adding field or ref to spec. Can be passed to specs that use other specs
+    like combine
+    """
+
+    def __init__(self, key: str, type_name: str, builder=None):
+        self.key = key
+        self.type_name = type_name
+        self.builder = builder
+
+
+class Builder:
+    """
+    Container class for constructing the Data Spec by adding fields, refs, and field_groups
+
+    Basic Usage:
+
+    builder = dataspec.builder.Builder()
+    builder.values('names', ['amy', 'bob', 'cat', 'dan', 'earl'])
+    builder.range('ages', start=22, end=33)
+    spec = builder.build()
+    """
+
+    def __init__(self, has_refs=True):
+        if has_refs:
+            self.refs_builder = Builder(False)
+        else:
+            self.refs_builder = None
+        self.fields = {}
+        self.field_groups = []
+        self.keys = set()
+{% for type in types %}
+    def {{ func_name(type.type_name) }}(self, key: str, {{ build_typed_params(type) }}**config):
+        """
+        creates {{ type.type_name }} Field Spec and adds to Data Spec
+
+        :param key: name of ref/field{{ build_param_docs(type, "        ") }}
+        :param config: in **kwargs format
+        """
+        return self._add_field_spec(key, {{ func_name(type.type_name) }}({{ build_params(type) }}**config))
+{% endfor %}
+    def _add_field_spec(self, key, spec):
+        self.add_field(key, spec)
+        return FieldInfo(key, spec['type'], self)
+
+    def add_fields(self, **kwargs):
+        """
+        Add all fields to the spec. kwargs format should be:
+
+        builder = dataspec.builder.Builder()
+        builder.add_fields(
+            FIELDNAME1=builder.some_spec(with_args),
+            FIELDNAME2=builder.another_spec(with_args)
+        )
+
+        :param kwargs: where key is field name and value is a generated spec
+        :return: self for chaining invocations
+        """
+        for key, spec in kwargs.items():
+            self.add_field(key, spec)
+        return self
+
+    def add_field(self, key: str, spec: dict):
+        """
+        Add single field to the spec.
+
+        builder = dataspec.builder.Builder()
+        builder.add_field("field1", builder.some_spec(with_args)) \
+               .add_field("field2", builder.another_spec(with_args))
+
+        :param key: field name
+        :param spec: the generate spec for this field
+        :return: self for chaining invocations
+        """
+        if key in self.keys:
+            log.warning('%s key already defined, overwriting with %s',
+                        key, json.dumps(spec))
+        self.keys.add(key)
+        self.fields[key] = spec
+        return self
+
+    def add_refs(self, **kwargs):
+        """
+        Add all refs to the spec. kwargs format should be:
+
+        builder = dataspec.builder.Builder()
+        builder.add_refs(
+            REFNAME1=builder.some_spec(with_args),
+            REFNAME2=builder.another_spec(with_args)
+        )
+
+        :param kwargs: where key is ref name and value is a generated spec
+        :return: self for chaining invocations
+        """
+        for key, spec in kwargs.items():
+            self.add_ref(key, spec)
+        return self
+
+    def add_ref(self, key: str, spec: dict):
+        """
+        Add single ref to the spec.
+
+        builder = dataspec.builder.Builder()
+        builder.add_ref("ref1", builder.some_spec(with_args)) \
+               .add_ref("ref2", builder.another_spec(with_args))
+
+        :param key: ref name
+        :param spec: the generate spec for this ref
+        :return: self for chaining invocations
+        """
+        if key in self.keys:
+            log.warning('%s key already defined, overwriting with %s', key, json.dumps(spec))
+        self.keys.add(key)
+        self.refs_builder.add_field(key, spec)
+        return self
+
+    def weighted_field_group(self, key: str, fields: List[str], weight: float):
+        """
+        Creates a weighted field group for a single key and add to Spec
+        :param key: the name of the field group
+        :param fields: the fields in the group
+        :param weight: the weight for this group
+        :return: FieldInfo
+        """
+        field_group = {
+            key: {
+                "weight": weight,
+                "fields": fields
+            }
+        }
+        self.field_groups.append(field_group)
+        return FieldInfo(key, 'field_group')
+
+    def named_field_group(self, key: str, fields: List[str]):
+        """
+        Create a named field group for a single key and add to Spec
+        :param key: the name of the field group
+        :param fields: the fields in the group
+        :return: FieldInfo
+        """
+        field_group = {
+            key: fields
+        }
+        self.field_groups.append(field_group)
+        return FieldInfo(key, 'field_group')
+
+    def add_field_groups(self, field_groups: List[Union[List[str], Dict[str, Dict]]]):
+        """
+        Add a single field group
+        :param field_groups: to add
+        :return: self for chaining invocations
+        """
+        for field_group in field_groups:
+            self.add_field_group(field_group)
+        return self
+
+    def add_field_group(self, field_group: Union[List[str], Dict[str, Dict]]):
+        """
+        Add a single field group
+        :param field_group: to add
+        :return: self for chaining invocations
+        """
+        self.field_groups.append(field_group)
+        return self
+
+    def build(self):
+        """
+        Generates the spec from the provided fields, refs, and field_groups
+        :return: The built spec
+        """
+        spec = {}
+        spec.update(self.fields)
+        if len(self.refs_builder.fields) > 0:
+            spec['refs'] = self.refs_builder.fields
+        if len(self.field_groups) > 0:
+            self._configure_field_groups(spec)
+
+        return spec
+
+    def _configure_field_groups(self, spec):
+        """
+        Adds the field_groups element to the spec if needed and defined
+        """
+        all_dict = all(isinstance(entry, dict) for entry in self.field_groups)
+        if all_dict:
+            flattened = {}
+            for entry in self.field_groups:
+                flattened.update(entry)
+            spec['field_groups'] = flattened
+        all_list = all(isinstance(entry, list) for entry in self.field_groups)
+        if all_list:
+            spec['field_groups'] = self.field_groups
+
+
+def single_field(name: str, spec):
+    """ Creates Builder for single field and spec """
+    return Builder().add_field(name, spec)
+
+{% for type in types %}
+def {{ func_name(type.type_name) }}({{ build_typed_params(type) }}**config):
+    """
+    Constructs a {{ type.type_name }} Field Spec
+{{ build_param_docs(type, "    ") }}
+    :param config: in **kwargs format
+    :return: the {{ type.type_name }} spec
+    """
+{{ build_spec(type) }}{{ add_custom_logic(type) }}
+    if len(config) > 0:
+        spec['config'] = config
+    return spec
+
+{% endfor %}
+
+def _create_key_list(entries):
+    """
+    Checks if entries are from FieldInfo objects and extracts keys
+
+    :param entries: to create key list from
+    :return: the list of keys
+    """
+    if len(entries) == 0:
+        return []
+    if isinstance(entries[0], FieldInfo):
+        return [entry.key for entry in entries]
+    # this should be a regular list of strings
+    return entries

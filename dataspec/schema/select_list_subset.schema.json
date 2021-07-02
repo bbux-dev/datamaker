@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/bbux-dev/dataspec/schemas/select_list_subset.schema.json",
+  "type": "object",
+  "required": ["type"],
+  "oneOf": [
+    {"required": ["ref"]},
+    {"required": ["data"]}
+  ],
+  "properties": {
+    "type": {"type": "string", "pattern": "^select_list_subset$"},
+    "config": {
+      "type": "object",
+      "oneOf": [
+        {"required": ["count"]},
+        {"required": ["mean"]}
+      ],
+      "properties": {
+        "prefix": {"$ref": "#/definitions/prefix"},
+        "suffix": {"$ref": "#/definitions/suffix"},
+        "quote": {"$ref": "#/definitions/quote"},
+        "min": {
+          "type": "integer",
+          "description": "minimum number of items to select from list",
+          "default": null,
+          "examples": [1, 7, 2255],
+          "minimum": 1
+        },
+        "max": {
+          "type": "integer",
+          "description": "maximum number of items to select from list",
+          "default": null,
+          "examples": [1, 7, 2255],
+          "minimum": 1
+        },
+        "mean": {
+          "type": "number",
+          "description": "mean number of items to select from list",
+          "default": null,
+          "examples": [3, 5, 7.5]
+        },
+        "stddev": {
+          "type": "number",
+          "description": "standard deviation from mean for number of items to select from list",
+          "default": null,
+          "examples": [0.5, 3, 7]
+        },
+        "count": {
+          "type": "number",
+          "description": "exact number of items to select from list",
+          "default": null,
+          "minimum": 1,
+          "examples": [3, 5, 7]
+        }
+      },
+      "not": {
+        "description": "count should not be present if min max or mean are present",
+        "anyOf": [
+          {"required": ["count", "min"]},
+          {"required": ["count", "max"]},
+          {"required": ["count", "mean"]}
+        ]
+      }
+    },
+    "ref": {
+      "type": "string",
+      "description": "The valid name of a spec from the ref section the contains a list as the data element"
+    },
+    "data": {
+      "type": "array",
+      "description": "The data to select from",
+      "minItems": 1
+    }
+  }
+}

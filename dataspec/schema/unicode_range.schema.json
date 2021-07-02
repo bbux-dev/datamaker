@@ -12,10 +12,32 @@
         "suffix": {"$ref": "#/definitions/suffix"},
         "quote": {"$ref": "#/definitions/quote"},
         "count": {"$ref": "#/definitions/count"},
-        "min": {"$ref": "#/definitions/min"},
-        "max": {"$ref": "#/definitions/max"},
-        "mean": {"$ref": "#/definitions/mean"},
-        "stddev": {"$ref": "#/definitions/stddev"}
+        "min": {
+          "type": "integer",
+          "description": "minimum number of characters in string",
+          "default": null,
+          "examples": [1, 7, 2255],
+          "minimum": 1
+        },
+        "max": {
+          "type": "integer",
+          "description": "maximum number of characters in string",
+          "default": null,
+          "examples": [1, 7, 2255],
+          "minimum": 1
+        },
+        "mean": {
+          "type": "number",
+          "description": "mean number of characters in string",
+          "default": null,
+          "examples": [3, 5, 7.5]
+        },
+        "stddev": {
+          "type": "number",
+          "description": "standard deviation from mean for number of characters in string",
+          "default": null,
+          "examples": [0.5, 3, 7]
+        }
       },
       "not": {
         "description": "count should not be present if min max or mean are present",

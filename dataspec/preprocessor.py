@@ -22,18 +22,17 @@ def preprocess_spec(raw_spec):
     """
     updated_specs = {}
     for key, spec in raw_spec.items():
-        if key in ['refs', 'field_groups']:
+        if key == 'refs':
+            updated_specs[key] = preprocess_spec(raw_spec[key])
+            continue
+        if key == 'field_groups':
             updated_specs[key] = spec
             continue
         if '?' not in key:
             _update_no_params(key, spec, updated_specs)
         else:
             _update_with_params(key, spec, updated_specs)
-    if 'refs' in raw_spec:
-        if 'refs' in updated_specs:
-            updated_specs['refs'].update(preprocess_spec(raw_spec['refs']))
-        else:
-            updated_specs['refs'] = preprocess_spec(raw_spec['refs'])
+
     return updated_specs
 
 

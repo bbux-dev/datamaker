@@ -1,24 +1,18 @@
-from dataspec import Loader
-from dataspec.type_handlers import nested_handler
+from dataspec import builder, Loader
+from dataspec.supplier.core import nested
 
 
 def test_single_nested():
-    spec = {
-        "id:uuid": {},
-        "geo": {
-            "type": "nested",
-            "fields": {
-                "place_id:uuid": {},
-                "coordinates": {
-                    "type": "geo.pair",
-                    "config": {
-                        "as_list": True
-                    }
-                }
-            }
-        }
-    }
-
+    # Geo
+    # - Place
+    # - Coord
+    geo_spec = builder.Builder() \
+        .add_field("place_id:uuid", {}) \
+        .add_field("coordinates", builder.geo_pair(as_list=True))
+    spec = builder.Builder() \
+        .add_field("id:uuid", {}) \
+        .add_field("geo", builder.nested(fields=geo_spec.build())) \
+        .build()
     supplier = Loader(spec).get('geo')
 
     first = supplier.next(0)
@@ -27,27 +21,20 @@ def test_single_nested():
 
 
 def test_multi_nested():
-    spec = {
-        "id:uuid": {},
-        "user:nested": {
-            "fields": {
-                "user_id:uuid": {},
-                "geo": {
-                    "type": "nested",
-                    "fields": {
-                        "place_id:uuid": {},
-                        "coordinates": {
-                            "type": "geo.pair",
-                            "config": {
-                                "as_list": True
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
+    # User
+    # - Geo
+    # - - Place
+    # - - Coord
+    geo_spec = builder.Builder() \
+        .add_field("place_id:uuid", {}) \
+        .add_field("coordinates", builder.geo_pair(as_list=True))
+    user_spec = builder.Builder() \
+        .add_field("user_id:uuid", {}) \
+        .add_field("geo", builder.nested(fields=geo_spec.build()))
+    spec = builder.Builder() \
+        .add_field("id:uuid", {}) \
+        .add_field("user", builder.nested(fields=user_spec.build())) \
+        .build()
     supplier = Loader(spec).get('user')
 
     first = supplier.next(0)
@@ -59,26 +46,17 @@ def test_multi_nested():
     assert list(second.keys()) == ['place_id', 'coordinates']
 
 
-def test_single_nested_as_array():
-    spec = {
-        "id:uuid": {},
-        "geo": {
-            "type": "nested",
-            "config": {
-                "as_array": "true"
-            },
-            "fields": {
-                "place_id:uuid": {},
-                "coordinates": {
-                    "type": "geo.pair",
-                    "config": {
-                        "as_list": True
-                    }
-                }
-            }
-        }
-    }
-
+def test_single_nested_as_list():
+    # Geo
+    # - Place
+    # - Coord
+    geo_spec = builder.Builder() \
+        .add_field("place_id:uuid", {}) \
+        .add_field("coordinates", builder.geo_pair(as_list=True))
+    spec = builder.Builder() \
+        .add_field("id:uuid", {}) \
+        .add_field("geo", builder.nested(fields=geo_spec.build(), as_list=True)) \
+        .build()
     supplier = Loader(spec).get('geo')
 
     first = supplier.next(0)

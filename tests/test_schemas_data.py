@@ -14,8 +14,9 @@ ASSUMED_INVALID = "invalid"
 INSTANCE = "instance"
 MESSAGE = "note"
 
-schema_dir = os.path.dirname(os.path.realpath(__file__))
-tests_dir = f'{schema_dir}/tests'
+root_dir = os.path.dirname(os.path.realpath(__file__))
+schema_dir = os.path.realpath(os.sep.join([root_dir, '..', 'dataspec', 'schema']))
+tests_dir = os.sep.join([root_dir, 'data'])
 
 
 def test_values_schema():
@@ -64,6 +65,10 @@ def test_unicode_range_schema():
 
 def test_ip_schema():
     _test_run_validation("ip.tests.json")
+
+
+def test_select_list_subset():
+    _test_run_validation("select_list_subset.tests.json")
 
 
 def _test_run_validation(test_file_name):
@@ -130,5 +135,5 @@ def load_schema_file(file_name):
 
 
 def _load_file(root_dir, file_name):
-    with open(f'{root_dir}/{file_name}', 'r') as handle:
+    with open(os.sep.join([root_dir, file_name]), 'r') as handle:
         return json.load(handle)

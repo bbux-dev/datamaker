@@ -1,0 +1,44 @@
+{
+  "select_list_subset.schema.json": {
+    "valid": [
+      {"instance": {"type": "select_list_subset", "data": ["one"]}},
+      {"instance": {"type": "select_list_subset", "data": ["one", "two"]}},
+      {"instance": {"type": "select_list_subset", "data": ["one", "two", "tre"]}},
+      {"instance": {"type": "select_list_subset", "ref": "has_the_list"}},
+      {
+        "note": "count by itself is valid",
+        "instance": {"type": "select_list_subset", "data": ["a", "b", "c"], "config": {"count": 5}}
+      },
+      {
+        "instance": {"type": "select_list_subset", "data": ["a", "b", "c"], "config": {"mean": 2, "min": 1, "max": 3}}
+      },
+      {
+        "note": "mean by itself is valid",
+        "instance": {"type": "select_list_subset", "data": ["a", "b", "c"], "config": {"mean": 2}}
+      },
+      {
+        "note": "mean with stddev is valid",
+        "instance": {"type": "select_list_subset", "data": ["a", "b", "c"], "config": {"mean": 2, "stddev":  1}}
+      }
+    ],
+    "invalid": [
+      {"instance": {}, "note": "empty"},
+      {"instance": {"type": "select_list_subsets"}, "note": "misspelled"},
+      {"instance": {"type": "select_list_subset"}, "note": "no data element defined"},
+      {"instance": {"type": "select_list_subset", "data": 42}, "note": "data not a list"},
+      {"instance": {"type": "select_list_subset", "data": "foobar"}, "note": "data not a list"},
+      {
+        "note": "count and min together is invalid",
+        "instance": {"type": "select_list_subset", "data": ["a", "b", "c"], "config": {"count": 5, "min": 3}}
+      },
+      {
+        "note": "count and max together is invalid",
+        "instance": {"type": "select_list_subset", "data": ["a", "b", "c"], "config": {"count": 5, "max": 5}}
+      },
+      {
+        "note": "count and mean together is invalid",
+        "instance": {"type": "select_list_subset", "data": ["a", "b", "c"], "config": {"count": 5, "mean": 5}}
+      }
+    ]
+  }
+}

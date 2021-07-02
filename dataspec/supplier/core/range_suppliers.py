@@ -13,48 +13,51 @@ Range Spec format:
 import decimal
 import json
 import math
-from dataspec import registry, suppliers, schemas, SpecException
-from dataspec.utils import load_config
+
+import dataspec
 
 RANGE_KEY = 'range'
 RAND_RANGE_KEY = 'rand_range'
 
 
-@registry.schemas(RANGE_KEY)
+@dataspec.registry.schemas(RANGE_KEY)
 def get_range_schema():
-    return schemas.load(RANGE_KEY)
+    """ schema for range type """
+    return dataspec.schemas.load(RANGE_KEY)
 
 
-@registry.schemas(RAND_RANGE_KEY)
+@dataspec.registry.schemas(RAND_RANGE_KEY)
 def get_rand_range_schema():
+    """ schema for rand range type """
     # This shares a schema with range
-    return schemas.load(RANGE_KEY)
+    return dataspec.schemas.load(RANGE_KEY)
 
 
-@registry.types(RANGE_KEY)
+@dataspec.registry.types(RANGE_KEY)
 def configure_range_supplier(field_spec, _):
     """ configures the range value supplier """
     if 'data' not in field_spec:
-        raise SpecException('No data element defined for: %s' % json.dumps(field_spec))
+        raise dataspec.SpecException('No data element defined for: %s' % json.dumps(field_spec))
 
     data = field_spec.get('data')
     if not isinstance(data, list) or len(data) < 2:
-        raise SpecException(
+        raise dataspec.SpecException(
             'data element for ranges type must be list with at least two elements: %s' % json.dumps(field_spec))
     # we have the nested case
     if isinstance(data[0], list):
-        suppliers_list = [_configure_supplier_for_range_data(field_spec, subdata) for subdata in data]
-        return suppliers.from_list_of_suppliers(suppliers_list, True)
-    return _configure_supplier_for_range_data(field_spec, data)
+        suppliers_list = [_configure_supplier_for_data(field_spec, subdata) for subdata in data]
+        return dataspec.suppliers.from_list_of_suppliers(suppliers_list, True)
+    return _configure_supplier_for_data(field_spec, data)
 
 
-def _configure_supplier_for_range_data(field_spec, data):
+def _configure_supplier_for_data(field_spec, data):
+    """ configures the supplier based on the range data supplied """
     start = data[0]
     # default for built in range function is exclusive end, we want to default to inclusive as this is the
     # more intuitive behavior
     end = data[1] + 1
     if not end > start:
-        raise SpecException('end element must be larger than start: %s' % json.dumps(field_spec))
+        raise dataspec.SpecException('end element must be larger than start: %s' % json.dumps(field_spec))
     if len(data) == 2:
         step = 1
     else:
@@ -63,27 +66,27 @@ def _configure_supplier_for_range_data(field_spec, data):
         config = field_spec.get('config', {})
         precision = config.get('precision', None)
         if precision and not str(precision).isnumeric():
-            raise SpecException(f'precision must be valid integer {json.dumps(field_spec)}')
+            raise dataspec.SpecException(f'precision must be valid integer {json.dumps(field_spec)}')
         range_values = list(float_range(float(start), float(end), float(step), precision))
     else:
         range_values = list(range(start, end, step))
-    return suppliers.values(range_values)
+    return dataspec.suppliers.values(range_values)
 
 
-@registry.types(RAND_RANGE_KEY)
+@dataspec.registry.types(RAND_RANGE_KEY)
 def configure_rand_range_supplier(field_spec, loader):
     """ configures the random range value supplier """
     if 'data' not in field_spec:
-        raise SpecException('No data element defined for: %s' % json.dumps(field_spec))
+        raise dataspec.SpecException('No data element defined for: %s' % json.dumps(field_spec))
     data = field_spec.get('data')
-    config = load_config(field_spec, loader)
+    config = dataspec.utils.load_config(field_spec, loader)
     if not isinstance(data, list) or len(data) == 0:
-        raise SpecException(
+        raise dataspec.SpecException(
             'rand_range specs require data as array with at least one element: %s' % json.dumps(field_spec))
     start = 0
     if len(data) == 1:
         end = data[0]
-    if len(data) == 2:
+    if len(data) >= 2:
         start = data[0]
         end = data[1]
     precision = None
@@ -91,7 +94,7 @@ def configure_rand_range_supplier(field_spec, loader):
         precision = data[2]
     # config overrides third data element if specified
     precision = config.get('precision', precision)
-    return suppliers.random_range(start, end, precision)
+    return dataspec.suppliers.random_range(start, end, precision)
 
 
 def _any_is_float(data):
@@ -104,7 +107,8 @@ def _any_is_float(data):
 
 def float_range(start, stop, step, precision=None):
     """
-    Fancy foot work to support floating point ranges due to rounding errors with the way floating point numbers are stored
+    Fancy foot work to support floating point ranges due to rounding errors with the way floating point numbers are
+    stored
     """
     # attempt to defeat some rounding errors prevalent in python
     if precision:

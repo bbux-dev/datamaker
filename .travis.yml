@@ -9,11 +9,12 @@ before_install:
   - pip install -U pip
   - pip install -U pytest
   - pip install -U pytest-cov
-  - pip install codecov
+  - pip install codecov mypy types-Jinja2
 install:
   - pip install -r requirements.txt
   - pip install .
 script:
   - pytest --cov=dataspec
+  - mypy --show-error-codes dataspec/
 after_success:
   - codecov # submit coverage

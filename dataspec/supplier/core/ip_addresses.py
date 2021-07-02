@@ -1,18 +1,17 @@
 """
 Module for handling ip types
 """
+import ipaddress
 import json
 import random
-import ipaddress
-from dataspec import registry, suppliers, ValueSupplierInterface, SpecException
-import dataspec.schemas as schemas
-from dataspec.utils import load_config
+
+import dataspec
 
 IP_KEY = 'ip'
 IPV4_KEY = 'ipv4'
 
 
-class IpV4Supplier(ValueSupplierInterface):
+class IpV4Supplier(dataspec.ValueSupplierInterface):
     """
     Default implementation for generating ip values, uses separate suppliers for each octet of the ip
     """
@@ -31,33 +30,34 @@ class IpV4Supplier(ValueSupplierInterface):
         return f'{first}.{second}.{third}.{fourth}'
 
 
-@registry.schemas(IP_KEY)
+@dataspec.registry.schemas(IP_KEY)
 def get_ip_schema():
-    return schemas.load(IP_KEY)
+    return dataspec.schemas.load(IP_KEY)
 
 
-@registry.schemas(IPV4_KEY)
+@dataspec.registry.schemas(IPV4_KEY)
 def get_ipv4_schema():
-    return schemas.load(IPV4_KEY)
+    # shares schema with ip
+    return dataspec.schemas.load(IP_KEY)
 
 
-@registry.types(IPV4_KEY)
+@dataspec.registry.types(IPV4_KEY)
 def configure_ipv4(field_spec, _):
     """ configures value supplier for ipv4 type """
     return configure_ip(field_spec, _)
 
 
-@registry.types(IP_KEY)
+@dataspec.registry.types(IP_KEY)
 def configure_ip(field_spec, loader):
     """ configures value supplier for ip type """
-    config = load_config(field_spec, loader)
+    config = dataspec.utils.load_config(field_spec, loader)
     if 'base' in config and 'cidr' in config:
-        raise SpecException('Must supply only one of base or cidr param: ' + json.dumps(field_spec))
+        raise dataspec.SpecException('Must supply only one of base or cidr param: ' + json.dumps(field_spec))
 
     parts = _get_base_parts(config)
     # this is the same thing as a constant
     if len(parts) == 4:
-        return suppliers.values('.'.join(parts))
+        return dataspec.suppliers.values('.'.join(parts))
     sample = config.get('sample', 'yes')
     octet_supplier_map = {
         'first': _create_octet_supplier(parts, 0, sample),
@@ -83,13 +83,13 @@ def _get_base_parts(config):
         if '/' in cidr:
             mask = cidr[cidr.index('/') + 1:]
             if not mask.isdigit():
-                raise SpecException('Invalid Mask in cidr for config: ' + json.dumps(config))
+                raise dataspec.SpecException('Invalid Mask in cidr for config: ' + json.dumps(config))
             if int(mask) not in [8, 16, 24]:
-                raise SpecException('Invalid Subnet Mask in cidr for config: ' + json.dumps(config)
+                raise dataspec.SpecException('Invalid Subnet Mask in cidr for config: ' + json.dumps(config)
                                     + ' only one of /8 /16 or /24 supported')
             ip_parts = cidr[0:cidr.index('/')].split('.')
             if len(ip_parts) < 4 or not all(part.isdigit() for part in ip_parts):
-                raise SpecException('Invalid IP in cidr for config: ' + json.dumps(config))
+                raise dataspec.SpecException('Invalid IP in cidr for config: ' + json.dumps(config))
             if mask == '8':
                 parts = ip_parts[0:1]
             if mask == '16':
@@ -97,7 +97,7 @@ def _get_base_parts(config):
             if mask == '24':
                 parts = ip_parts[0:3]
         else:
-            raise SpecException('Invalid Subnet Mask in cidr for config: ' + json.dumps(config)
+            raise dataspec.SpecException('Invalid Subnet Mask in cidr for config: ' + json.dumps(config)
                                 + ' only one of /8 /16 or /24 supported')
     return parts
 
@@ -108,17 +108,17 @@ def _create_octet_supplier(parts, index, sample):
     if len(parts) >= index + 1 and parts[index].strip() != '':
         octet = parts[index].strip()
         if not octet.isdigit():
-            raise SpecException(f'Octet: {octet} invalid for base, Invalid Input: ' + '.'.join(parts))
+            raise dataspec.SpecException(f'Octet: {octet} invalid for base, Invalid Input: ' + '.'.join(parts))
         if not 0 <= int(octet) <= 255:
-            raise SpecException(f'Each octet: {octet} must be in range of 0 to 255, Invalid Input: ' + '.'.join(parts))
-        return suppliers.values(octet)
+            raise dataspec.SpecException(f'Each octet: {octet} must be in range of 0 to 255, Invalid Input: ' + '.'.join(parts))
+        return dataspec.suppliers.values(octet)
     # need octet range at this point
     octet_range = list(range(0, 255))
     spec = {'config': {'sample': sample}, 'data': octet_range}
-    return suppliers.values(spec)
+    return dataspec.suppliers.values(spec)
 
 
-class IpV4PreciseSupplier(ValueSupplierInterface):
+class IpV4PreciseSupplier(dataspec.ValueSupplierInterface):
     """
     Class that supports precise ip address generation by specifying cidr values, much slower for large ip ranges
     """
@@ -139,14 +139,14 @@ class IpV4PreciseSupplier(ValueSupplierInterface):
         return str(self.net[idx])
 
 
-@registry.types('ip.precise')
+@dataspec.registry.types('ip.precise')
 def configure_precise_ip(field_spec, _):
     """ configures value supplier for ip.precise type """
     config = field_spec.get('config')
     if config is None:
-        raise SpecException('No config for: ' + json.dumps(field_spec) + ', param cidr required')
+        raise dataspec.SpecException('No config for: ' + json.dumps(field_spec) + ', param cidr required')
     cidr = config.get('cidr')
     sample = config.get('sample', 'no').lower() in ['yes', 'true', 'on']
     if cidr is None:
-        raise SpecException('Invalid config for: ' + json.dumps(field_spec) + ', param cidr required')
+        raise dataspec.SpecException('Invalid config for: ' + json.dumps(field_spec) + ', param cidr required')
     return IpV4PreciseSupplier(cidr, sample)
